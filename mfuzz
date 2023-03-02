@@ -1,12 +1,550 @@
 #mfuzz R package to cluster Group4 genes#
 
-cd /misc/sandan/cfbi/CFBI_20210127_156_GB/fuzzy_clustering/
+#steps:
 
 #Loading the MageckFLUTE output files.
 #MageckFLUTE defines groups based on the gene's position in a "Squareview" plot. Overview of the different groups in each data set.
-
 #Filtering of the differential beta scores over all four time points at Group4 (bottom center) from MageckFlute SquareView. 
-
 #Fuzzy c-means clustering was applied to either the raw or the standardized differential beta scores. #Standardised beta scores perform better and were preferred.#
-
 #Optimal cluster number: The minimal centroid distance may help to find an optimal cluster number. At the slope change, where a slower decrease of the minimum centroid distance for higher cluster number is observed, more and more clusters get "similar". In this study, 8 clusters seem appropriate.
+
+
+
+---
+output:
+  html_document:
+    theme: cerulean
+    keep_md: yes
+    toc: true
+    toc_float: true
+    number_sections: false
+    df_print: paged
+    self_contained: true
+  pdf_document: default
+params:
+    projectid: "CFBI_20210127_156_GB"
+    wkdir: "/misc/sandan/cfbi/CFBI_20210127_156_GB/fuzzy_clustering/"
+editor_options: 
+  chunk_output_type: console
+---
+
+---
+title: "`r params$projectid`"
+---
+
+working directory: `r params$wkdir`
+
+<!-- # Preamble -->
+
+
+```{r params, include=FALSE, cache=FALSE, eval=FALSE}
+# During development, we need this chunk to define params. Because params is from JAML header is not evaluated.
+# This chunk is never executed while knitting the complete Rmd.
+params = list()
+params$projectid <- "CFBI_20210127_156_GB"
+params$wkdir <- "/misc/sandan/cfbi/CFBI_20210127_156_GB/fuzzy_clustering/"
+```
+
+```{r init, cache=FALSE, include=FALSE}
+wd <- params$wkdir
+
+knitr::opts_chunk$set(cache = TRUE,
+                      echo = FALSE,
+                      warning = FALSE,
+                      message = FALSE,
+                      fig.align = 'center',
+                      fig.height = 7,
+                      fig.width = 7,
+                      dev=c('png','pdf'))
+                    #  pdf.options(encoding = "ISOLatin9.enc")
+                      
+## load packages
+#library(preprocessCore) # for normalize.quantiles()
+
+#BiocManager::install("Mfuzz")
+library(Mfuzz)
+
+library(tidyr)
+library(dplyr)
+#library(tibble)
+
+# plotting
+library(ggplot2)
+library(cowplot)
+library(scales)
+library(pheatmap)
+
+# output
+library(WriteXLS)
+library(DT)
+
+
+# little nice function for intersections.
+# returns a list of 4 character vectors
+"anydiff" <- function(a,b){
+  list("intersection" = intersect(a,b),
+       "left exclusive" = setdiff(a, b),
+       "right exclusive" = setdiff(b, a),
+       "union of exclusives" = union(setdiff(a, b),setdiff(b, a)))
+}
+
+
+```
+
+
+
+
+
+# Clustering
+
+
+Loading the MageckFLUTE output files.
+
+
+```{r load_mageck}
+
+# read the output tables from MageckFLUTE
+pd0 <-read.table(paste0(wd,"../Diff_beta_scores/KI_pd0_vs_amp_total_normalization_2stddev_ortsquareview_data.txt"), sep = "\t", header = TRUE)
+                  
+pd5 <-read.table(paste0(wd,"../Diff_beta_scores/KI_pd5_vs_amp_total_normalization_2stddev_ortsquareview_data.txt"), sep = "\t", header = TRUE)
+ 
+pd10 <-read.table(paste0(wd,"../Diff_beta_scores/KI_pd10_vs_amp_total_normalization_2stddev_ortsquareview_data.txt"), sep = "\t", header = TRUE)
+                  
+pd15 <-read.table(paste0(wd,"../Diff_beta_scores/KI_pd15_vs_amp_total_normalization_2stddev_ortsquareview_data.txt"), sep = "\t", header = TRUE)
+
+#read in MLE results
+#mle_pd15 <-read.table(paste0(wd,"../MLE_files/mle_pd15_vs_amp.gene_summary.txt"), sep = "\t", header = TRUE)
+```
+
+
+MageckFLUTE defines groups based on the gene's position in a "Squareview" plot. Overview of the different groups in each data set:
+
+```{r groups_overview}
+
+groups <- c("bottomcenter", "topcenter", "midleft","midright", "none")
+gr <- data.frame(rbind(table(pd0$group)[groups],
+                       table(pd5$group)[groups],
+                       table(pd10$group)[groups],
+                       table(pd15$group)[groups]), row.names = c("PD0","PD5","PD10","PD15"))
+
+# table output
+gr 
+```
+
+## Filtering 
+
+
+We are interested in the progression of genes that are classified as to be in the bottom central region of the Squareview plot called **"Group 4"**.
+
+```{r merge_table, results='asis'} 
+# filter data frames for only "bottomcenter" genes
+pd0.bc <- pd0[pd0$group=="bottomcenter",]
+#nrow(pd0.bc)
+pd5.bc <- pd5[pd5$group=="bottomcenter",]
+#nrow(pd5.bc)
+pd10.bc <- pd10[pd10$group=="bottomcenter",]
+#nrow(pd10.bc)
+pd15.bc <- pd15[pd15$group=="bottomcenter",]
+#nrow(pd15.bc)
+
+
+
+
+## Merge tables
+
+
+
+
+# Build one vector of gene symbols that are marked in at least one result as "bottomcenter"
+union.bc <- union(union(pd0.bc$Gene,pd5.bc$Gene),union(pd10.bc$Gene,pd15.bc$Gene))
+
+
+# create data frames having all genes that are stored in "union.bc"
+pd0.selected <- pd0[which(pd0$Gene %in% union.bc),]
+pd5.selected <- pd5[which(pd5$Gene %in% union.bc),]
+pd10.selected <- pd10[which(pd10$Gene %in% union.bc),]
+pd15.selected <- pd15[which(pd15$Gene %in% union.bc),]
+
+# hierarchical merging of the data frames of selected genes
+# step 1
+allpd.pre1 <- merge(x = pd0.selected, y = pd5.selected, by = "Gene", suffixes = c(".pd0",".pd5"))
+allpd.pre2 <- merge(x = pd10.selected, y = pd15.selected, by = "Gene", suffixes = c(".pd10",".pd15"))
+# step 2
+allpd <- merge(x = allpd.pre1, y = allpd.pre2, all = TRUE, by = "Gene")
+
+#colnames(allpd)
+
+allpd_Diffs <- allpd[,c("Gene","Diff.pd0","Diff.pd5","Diff.pd10","Diff.pd15")]
+#colnames(allpd_Diffs)
+# name the rows by gene symbol because this is maintained by mfuzz()
+row.names(allpd_Diffs) <- allpd_Diffs$Gene
+
+#cat("Top of the merged table:\n\n")
+
+#dim(allpd_Diffs)
+#head(allpd_Diffs)
+```
+
+Differential beta scores over all four time points:
+
+```{r timecourse}
+allpd_Diffs.tidy <- allpd_Diffs %>% pivot_longer(cols = starts_with("Diff"), names_to = "timepoint", values_to = "Diff_beta")
+allpd_Diffs.tidy$timepoint <- sub("Diff.", "", allpd_Diffs.tidy$timepoint)
+
+ggplot(allpd_Diffs.tidy, aes(x = timepoint, y = Diff_beta, group = Gene)) +
+  geom_line(alpha = 0.05)+
+  geom_point(alpha = 0.3) +
+  geom_hline(yintercept = 0, color = "red", linetype = 2)+
+  theme_bw()
+  
+```
+
+
+## Fuzzy Clustering
+
+Fuzzy c-means clustering is applied to either the raw or the standardised differential beta scores.
+
+In the following tabs, one overview figure of each clustering is provided. For more figures and clustering results, see the respective PDF and spread sheets in the main folder.
+
+### Not standardized{.tabset}
+
+```{r clustering_notSt, cache = FALSE, include=FALSE}
+timepoints <- c("pd0","pd5","pd10","pd15")
+
+# make a ExpressionSet object
+eset <- new("ExpressionSet",exprs=as.matrix(allpd_Diffs[,2:5]))
+
+# estimation of optimal fuzzifier
+m <- mestimate(eset)
+
+
+# standardize the data
+#eset.s <- standardise(eset)
+# we probably need to switch off the standardization!!!
+# for standardised version see below
+
+# TODO: use a reasonable method to find number of clusters
+# cselection() does not really help here but you can try to run it. It may take a time.
+# cselection(eset.s,m,crange=seq(5,50,5),repeats=5,visu=TRUE)
+
+
+## only a test with and without standardization:
+# with
+#clu.s <- mfuzz(eset.s,c=4,m=m)
+#mfuzz.plot2(eset.s,clu.s, x11 = F, mfrow = c(2,4), colo="fancy")
+# without
+#clu <- mfuzz(eset,c=4,m=m)
+#mfuzz.plot2(eset,clu, x11 = F, mfrow = c(2,4), colo="fancy")
+
+
+
+# we should try several cluster numbers so iterate through a defined set of them
+num.of.clusters <- c(2:10)
+
+clustering.result <- list()
+for (clsize in num.of.clusters){
+  print (clsize)
+  clustering.result[[as.character(clsize)]] <- mfuzz(eset,c=clsize,m=m)
+  
+  
+  # generate xls
+  clsize <- as.character(clsize)
+  dfs.to.xls <- list("num.of.clusters" = data.frame("size" = clustering.result[[clsize]]$size, check.names = F),
+                     "centers" = data.frame(clustering.result[[clsize]]$centers, check.names = F),
+                     "membership" = data.frame(clustering.result[[clsize]]$membership, check.names = F),
+                     "cluster"= data.frame("assigned_to_cluster" = clustering.result[[clsize]]$cluster,
+                                           check.names = F, row.names = names(clustering.result[[clsize]]$cluster)))
+  
+  # fix one "bug" of WriteXLS where the column headers are empty when the colname is only a number
+  colnames(dfs.to.xls$membership) <- paste0("c",colnames(dfs.to.xls$membership))
+  
+  # # add annotation columns to the membership table
+  # mem <- merge(dfs.to.xls$membership, compa.annot.cols, by = "row.names", all.x = TRUE, sort = FALSE)
+  # row.names(mem) <- mem$Row.names
+  # dfs.to.xls$membership <- mem[,2:ncol(mem)]
+  # 
+  # # add annotation columns to the cluster table
+  # clu <- merge(dfs.to.xls$cluster, compa.annot.cols, by = "row.names", all.x = TRUE, sort = FALSE)
+  # row.names(clu) <- clu$Row.names
+  # dfs.to.xls$cluster <- clu[,2:ncol(clu)]
+
+  
+  # finally, write everything into an excel file
+  WriteXLS::WriteXLS(dfs.to.xls,ExcelFileName = paste0("mfuzz.result-",clsize,".clusters_notStandardised.xls"), 
+                     row.names = TRUE, BoldHeaderRow = TRUE, FreezeRow = 1, FreezeCol = 1, AdjWidth = TRUE, AutoFilter = TRUE)
+}
+```
+
+
+```{r default_plotting_notSt, cache=FALSE, results="asis"}
+
+for (clsize in as.character(num.of.clusters)){
+  #print(clsize)
+  cat("\n")
+  cat(paste0("#### ", clsize, " Clusters\n"))
+  
+  # output the figure to the html
+  mfuzz.plot2(eset,clustering.result[[clsize]], x11 = F, mfrow = c(2,4), ylab = "Raw differential beta score", time.labels = timepoints, centre = TRUE, colo="fancy")
+  
+  cat("\n")
+}
+
+```
+
+
+```{r default_plotting_pdf_notSt, cache=FALSE}
+for (clsize in as.character(num.of.clusters)){
+  
+  # generate figures for pdf
+  pdf(paste0("mfuzz.result-",clsize,".clusters_notStandardised.pdf"))
+  
+  # plot every cluster on one page
+  mfuzz.plot2(eset,clustering.result[[clsize]], x11 = F, ylab = "Raw differential beta score", time.labels = timepoints, centre = TRUE, colo="fancy")
+  
+  # plot once with multiple clusters on one page
+  mfuzz.plot2(eset,clustering.result[[clsize]], x11 = F, ylab = "Raw differential beta score", mfrow = c(2,4), time.labels = timepoints, centre = TRUE, colo="fancy")
+  
+  #cluster center assessments
+  pheatmap(cor(t(clustering.result[[clsize]]$centers)),
+           cluster_rows = FALSE, cluster_cols = FALSE,
+           color = colorRampPalette(c("#ffffb2","#ffffb2", "#ffffb2", "#f03b20"))(10),
+           display_numbers = TRUE,
+           main = "Pearson correlation of cluster centers")
+  dev.off()
+  
+} 
+``` 
+
+
+### Standardized{.tabset}
+
+```{r clustering_St, cache = FALSE, include=FALSE}
+timepoints <- c("pd0","pd5","pd10","pd15")
+
+# make a ExpressionSet object
+eset <- new("ExpressionSet",exprs=as.matrix(allpd_Diffs[,2:5]))
+
+# estimation of optimal fuzzifier
+m <- mestimate(eset)
+
+
+# standardize the data
+eset.s <- standardise(eset)
+# we probably need to switch off the standardization!!! - for this, see above
+
+
+# TODO: use a reasonable method to find number of clusters
+# cselection() does not really help here but you can try to run it. It may take a time.
+# cselection(eset.s,m,crange=seq(5,50,5),repeats=5,visu=TRUE)
+
+
+## only a test with and without standardization:
+# with
+#clu.s <- mfuzz(eset.s,c=4,m=m)
+#mfuzz.plot2(eset.s,clu.s, x11 = F, mfrow = c(2,4), colo="fancy")
+# without
+#clu <- mfuzz(eset,c=4,m=m)
+#mfuzz.plot2(eset,clu, x11 = F, mfrow = c(2,4), colo="fancy")
+
+
+
+# we should try several cluster numbers so iterate through a defined set of them
+num.of.clusters <- c(2:10)
+
+clustering.result <- list()
+for (clsize in num.of.clusters){
+  print (clsize)
+  # remember: always input the standardized data!
+  clustering.result[[as.character(clsize)]] <- mfuzz(eset.s,c=clsize,m=m)
+  #what happens if not?
+  #clustering.result[[as.character(clsize)]] <- mfuzz(eset,c=clsize,m=m)
+  
+  
+  # generate xls
+  clsize <- as.character(clsize)
+  dfs.to.xls <- list("num.of.clusters" = data.frame("size" = clustering.result[[clsize]]$size, check.names = F),
+                     "centers" = data.frame(clustering.result[[clsize]]$centers, check.names = F),
+                     "membership" = data.frame(clustering.result[[clsize]]$membership, check.names = F),
+                     "cluster"= data.frame("assigned_to_cluster" = clustering.result[[clsize]]$cluster,
+                                           check.names = F, row.names = names(clustering.result[[clsize]]$cluster)))
+  
+  # fix one "bug" of WriteXLS where the column headers are empty when the colname is only a number
+  colnames(dfs.to.xls$membership) <- paste0("c",colnames(dfs.to.xls$membership))
+  
+  # # add annotation columns to the membership table
+  # mem <- merge(dfs.to.xls$membership, compa.annot.cols, by = "row.names", all.x = TRUE, sort = FALSE)
+  # row.names(mem) <- mem$Row.names
+  # dfs.to.xls$membership <- mem[,2:ncol(mem)]
+  # 
+  # # add annotation columns to the cluster table
+  # clu <- merge(dfs.to.xls$cluster, compa.annot.cols, by = "row.names", all.x = TRUE, sort = FALSE)
+  # row.names(clu) <- clu$Row.names
+  # dfs.to.xls$cluster <- clu[,2:ncol(clu)]
+
+  
+  # finally, write everything into an excel file
+  WriteXLS::WriteXLS(dfs.to.xls,ExcelFileName = paste0("mfuzz.result-",clsize,".clusters_Standardised.xls"), 
+                     row.names = TRUE, BoldHeaderRow = TRUE, FreezeRow = 1, FreezeCol = 1, AdjWidth = TRUE, AutoFilter = TRUE)
+}
+```
+
+
+```{r default_plotting_St, cache=FALSE, results="asis"}
+
+for (clsize in as.character(num.of.clusters)){
+  #print(clsize)
+  cat("\n")
+  cat(paste0("#### ", clsize, " Clusters\n"))
+  
+  # output the figure to the html
+  mfuzz.plot2(eset.s,clustering.result[[clsize]], x11 = F, mfrow = c(2,4), ylab = "Standardized differential beta score", time.labels = timepoints, centre = TRUE, colo="fancy")
+  
+  cat("\n")
+}
+
+```
+
+
+```{r default_plotting_pdf_St, cache=FALSE}
+for (clsize in as.character(num.of.clusters)){
+  
+  # generate figures for pdf
+  pdf(paste0("mfuzz.result-",clsize,".clusters_Standardised.pdf"))
+  
+  # plot every cluster on one page
+  mfuzz.plot2(eset.s,clustering.result[[clsize]], x11 = F, ylab = "Standardized differential beta score", time.labels = timepoints, centre = TRUE, colo="fancy")
+  
+  # plot once with multiple clusters on one page
+  mfuzz.plot2(eset.s,clustering.result[[clsize]], x11 = F, ylab = "Standardized differential beta score", mfrow = c(2,4), time.labels = timepoints, centre = TRUE, colo="fancy")
+  
+  #cluster center assessments
+  pheatmap(cor(t(clustering.result[[clsize]]$centers)),
+           cluster_rows = FALSE, cluster_cols = FALSE,
+           color = colorRampPalette(c("#ffffb2","#ffffb2", "#ffffb2", "#f03b20"))(10),
+           display_numbers = TRUE,
+           main = "Pearson correlation of cluster centers")
+  dev.off()
+  
+} 
+``` 
+
+
+
+
+```{r alt_plotting, results="asis", eval=FALSE}
+# This is an alternative way to plot the data as it provides more flexibility.
+# But the data has to be combined and made tidy.
+
+
+# make means tidy
+means.tidy <- lapply(means.filt.ExSet.s, function(x) data.frame("protein" = rownames(exprs(x)), exprs(x), check.names = FALSE)) %>% 
+  bind_rows(.id = "condition") %>% 
+  pivot_longer(ends_with("h"), names_to = "timepoint", values_to = "mean") %>%
+  mutate_if(is.character,as.factor) %>%
+  select(protein, condition, timepoint, mean)
+
+# reorder conditions
+means.tidy$condition <- factor(means.tidy$condition, levels = c("Mock", "Neg", "DHX9"))
+
+
+# maybe not all intermediate lists need to be stored!
+
+#means.tidy.clusters <- list()
+#membership.tidy <- list()
+means.tidy.clusters.membership <- list()
+
+for (cond in conditions){  
+  for (clsize in as.character(num.of.clusters)){
+    
+    
+    ## prepare data
+    # add the cluster information
+    means.tidy.clusters.tmp <- merge(x = means.tidy, y = data.frame("cluster" = factor(clustering.result[[clsize]]$cluster)), by.x = "protein", by.y = "row.names") 
+    
+    # make membership table tidy
+    membership.tidy.tmp <- data.frame("protein" = rownames(clustering.result[[clsize]]$membership), 
+                                      clustering.result[[clsize]]$membership, 
+                                      check.names = FALSE)  %>% 
+      pivot_longer(-1, names_to = "cluster", values_to = "membership") %>%
+      mutate_if(is.character,as.factor)
+    
+    # combine tidy clusters table with membership data
+    means.tidy.clusters.membership[[cond]][[clsize]] <- left_join(means.tidy.clusters.tmp,membership.tidy.tmp, by = c("protein", "cluster"))
+    
+    
+    
+    # filter the relevant conditions
+    da <- means.tidy.clusters.membership[[cond]][[clsize]] %>% filter(condition == "DHX9" |condition == "Neg")
+    
+    # make all member values to NA where the condition is not DHX9, they will become grey in the plot
+    da[!da$condition == "DHX9", "membership"] <- NA
+    
+    # print to pdf
+    pdf(paste0("clustering.filt.alt.",cond,"-",clsize,"c.pdf"))
+    
+    # the plot, no membership, wrap
+    print(ggplot(data = da, aes(x = timepoint, y = mean, group = interaction(protein,condition), color = condition)) +
+            geom_line(alpha = 0.25) +
+            facet_wrap( ~ cluster, ncol = 4) +
+            scale_color_manual(values = c("grey","red"))+
+            theme_cowplot()+
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (red) compared to \"Neg\" mean expression (grey), facet_wrap") +
+            theme(legend.position = "bottom"))
+    
+    # the plot, no membership, grid
+    print(ggplot(data = da, aes(x = timepoint, y = mean, group = interaction(protein,condition), color = condition)) +
+            geom_line(alpha = 0.25) +
+            facet_grid(condition ~ cluster)+
+            scale_color_manual(values = c("grey","red"))+
+            theme_cowplot()+
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (red) compared to \"Neg\" mean expression (grey), facet_grid") +
+            theme(legend.position = "bottom"))
+    
+    # the plot, membership, wrap
+    print(ggplot(data = da, aes(x = timepoint, y = mean, group = interaction(protein,condition), color = membership)) +
+            geom_line(alpha = 0.25) +
+            facet_wrap( ~ cluster, ncol = 4) +
+            scale_color_distiller(palette = "YlOrRd", direction = 1, na.value = "grey80") +
+            theme_cowplot()+
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (colored) compared to \"Neg\" mean expression (grey), facet_wrap") +
+            theme(legend.position = "bottom"))
+    
+    # the plot,  membership, grid
+    print(ggplot(data = da, aes(x = timepoint, y = mean, group = interaction(protein,condition), color = membership)) +
+            geom_line(alpha = 0.25) +
+            facet_grid(condition ~ cluster)+
+            scale_color_distiller(palette = "YlOrRd", direction = 1, na.value = "grey80") +
+            theme_cowplot()+
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (colored) compared to \"Neg\" mean expression (grey), facet_grid") +
+            theme(legend.position = "bottom"))
+    
+    dev.off()
+  }
+}
+
+
+
+
+
+
+```
+
+
+
+## Optimal cluster number
+
+The minimal centroid distance may help to find an optimal cluster number. At the slope change, where a slower decrease of the minimum centroid distance for higher cluster number is observed, more and more clusters get "similar". In this study, **x** seems appropriate.
+
+Not-standarddised:
+
+```{r dmin_St}
+Dmin(eset, m=m, crange=seq(2,22,1), repeats=3, visu=TRUE)
+```
+
+Standardised: 
+
+```{r dmin_notSt}
+Dmin(eset.s, m=m, crange=seq(2,22,1), repeats=3, visu=TRUE)
+```
+
+
