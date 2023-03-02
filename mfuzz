@@ -1,0 +1,12 @@
+#mfuzz R package to cluster Group4 genes#
+
+cd /misc/sandan/cfbi/CFBI_20210127_156_GB/fuzzy_clustering/
+
+#Loading the MageckFLUTE output files.
+#MageckFLUTE defines groups based on the gene's position in a "Squareview" plot. Overview of the different groups in each data set.
+
+#Filtering of the differential beta scores over all four time points at Group4 (bottom center) from MageckFlute SquareView. 
+
+#Fuzzy c-means clustering was applied to either the raw or the standardized differential beta scores. #Standardised beta scores perform better and were preferred.#
+
+#Optimal cluster number: The minimal centroid distance may help to find an optimal cluster number. At the slope change, where a slower decrease of the minimum centroid distance for higher cluster number is observed, more and more clusters get "similar". In this study, 8 clusters seem appropriate.
