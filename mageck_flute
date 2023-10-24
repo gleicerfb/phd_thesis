@@ -3,33 +3,33 @@
 #PD0
 library(MAGeCKFlute)
 library(ggplot2)
-file1 = file.path("/misc/enton/data/gborges/mageck/mle_PD0vsPD0_total_normalization.gene_summary.txt")
-FluteMLE(file1, treatname="KI_pd0", ctrlname="WT_pd0", proj="KI_pd0_vs_pd0_total_normalization", organism="hsa", outdir = "/misc/enton/data/gborges/mageck/flute_output")
+file1 = file.path("/datapath/mle_PD0vsPD0_total_normalization.gene_summary.txt")
+FluteMLE(file1, treatname="KI_pd0", ctrlname="WT_pd0", proj="KI_pd0_vs_pd0_total_normalization", organism="hsa", outdir = "/datapath/flute_output")
 
 #OR
 #PD5
 library(MAGeCKFlute)
 library(ggplot2)
-file1 = file.path("/misc/enton/data/gborges/mageck/mle_PD5vsPD0_total_normalization.gene_summary.txt")
-FluteMLE(file1, treatname="KI_pd5", ctrlname="WT_pd5", proj="KI_pd5_vs_pd0_total_normalization_2stddev", organism="hsa", scale_cutoff = 2 , top=10 , outdir = "/misc/enton/data/gborges/mageck/flute_output")
+file1 = file.path("/datapath/mle_PD5vsPD0_total_normalization.gene_summary.txt")
+FluteMLE(file1, treatname="KI_pd5", ctrlname="WT_pd5", proj="KI_pd5_vs_pd0_total_normalization_2stddev", organism="hsa", scale_cutoff = 2 , top=10 , outdir = "/datapath/flute_output")
 
 #OR
 #PD10
 library(MAGeCKFlute)
 library(ggplot2)
-file1 = file.path("/misc/enton/data/gborges/mageck/mle_PD10vsPD0_total_normalization.gene_summary.txt")
-FluteMLE(file1, treatname="KI_pd10", ctrlname="WT_pd10", proj="KI_pd10_vs_pd0_total_normalization_2stddev", organism="hsa", scale_cutoff = 2 , top=10 , outdir = "/misc/enton/data/gborges/mageck/flute_output")
+file1 = file.path("/datapath/mle_PD10vsPD0_total_normalization.gene_summary.txt")
+FluteMLE(file1, treatname="KI_pd10", ctrlname="WT_pd10", proj="KI_pd10_vs_pd0_total_normalization_2stddev", organism="hsa", scale_cutoff = 2 , top=10 , outdir = "/datapath/flute_output")
 
 #OR
 #PD15
 library(MAGeCKFlute)
 library(ggplot2)
-file1 = file.path("/misc/enton/data/gborges/mageck/mle_PD15vsPD0_total_normalization.gene_summary.txt")
-FluteMLE(file1, treatname="KI_pd15", ctrlname="WT_pd15", proj="KI_pd15_vs_pd0_total_normalization_2stddev", organism="hsa", scale_cutoff = 2 , top=10 , outdir = "/misc/enton/data/gborges/mageck/flute_output")
+file1 = file.path("/datapath/mle_PD15vsPD0_total_normalization.gene_summary.txt")
+FluteMLE(file1, treatname="KI_pd15", ctrlname="WT_pd15", proj="KI_pd15_vs_pd0_total_normalization_2stddev", organism="hsa", scale_cutoff = 2 , top=10 , outdir = "/datapath/flute_output")
 
 #OR
 #AllPDs
 library(MAGeCKFlute)
 library(ggplot2)
-file1 = file.path("/misc/enton/data/gborges/mageck/mle_allpds_vs_pd0.gene_summary.txt")
-FluteMLE(file1, treatname="KI", ctrlname="WT", proj="KI_allpds_vs_pd0_total_normalization", organism="hsa", scale_cutoff = 2 , top=10 ,  outdir = "/misc/enton/data/gborges/mageck/flute_output")
+file1 = file.path("/datapath/mle_allpds_vs_pd0.gene_summary.txt")
+FluteMLE(file1, treatname="KI", ctrlname="WT", proj="KI_allpds_vs_pd0_total_normalization", organism="hsa", scale_cutoff = 2 , top=10 ,  outdir = "/datapath/flute_output")
