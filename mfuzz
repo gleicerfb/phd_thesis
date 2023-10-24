@@ -444,7 +444,7 @@ means.tidy <- lapply(means.filt.ExSet.s, function(x) data.frame("protein" = rown
   select(protein, condition, timepoint, mean)
 
 # reorder conditions
-means.tidy$condition <- factor(means.tidy$condition, levels = c("Mock", "Neg", "DHX9"))
+means.tidy$condition <- factor(means.tidy$condition, levels = c("Mock", "Neg", "group4"))
 
 
 # maybe not all intermediate lists need to be stored!
@@ -474,10 +474,10 @@ for (cond in conditions){
     
     
     # filter the relevant conditions
-    da <- means.tidy.clusters.membership[[cond]][[clsize]] %>% filter(condition == "DHX9" |condition == "Neg")
+    da <- means.tidy.clusters.membership[[cond]][[clsize]] %>% filter(condition == "group4" |condition == "Neg")
     
-    # make all member values to NA where the condition is not DHX9, they will become grey in the plot
-    da[!da$condition == "DHX9", "membership"] <- NA
+    # make all member values to NA where the condition is not group4, they will become grey in the plot
+    da[!da$condition == "group4", "membership"] <- NA
     
     # print to pdf
     pdf(paste0("clustering.filt.alt.",cond,"-",clsize,"c.pdf"))
@@ -488,7 +488,7 @@ for (cond in conditions){
             facet_wrap( ~ cluster, ncol = 4) +
             scale_color_manual(values = c("grey","red"))+
             theme_cowplot()+
-            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (red) compared to \"Neg\" mean expression (grey), facet_wrap") +
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"group4\" mean expression (red) compared to \"Neg\" mean expression (grey), facet_wrap") +
             theme(legend.position = "bottom"))
     
     # the plot, no membership, grid
@@ -497,7 +497,7 @@ for (cond in conditions){
             facet_grid(condition ~ cluster)+
             scale_color_manual(values = c("grey","red"))+
             theme_cowplot()+
-            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (red) compared to \"Neg\" mean expression (grey), facet_grid") +
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"group4\" mean expression (red) compared to \"Neg\" mean expression (grey), facet_grid") +
             theme(legend.position = "bottom"))
     
     # the plot, membership, wrap
@@ -506,7 +506,7 @@ for (cond in conditions){
             facet_wrap( ~ cluster, ncol = 4) +
             scale_color_distiller(palette = "YlOrRd", direction = 1, na.value = "grey80") +
             theme_cowplot()+
-            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (colored) compared to \"Neg\" mean expression (grey), facet_wrap") +
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"group4\" mean expression (colored) compared to \"Neg\" mean expression (grey), facet_wrap") +
             theme(legend.position = "bottom"))
     
     # the plot,  membership, grid
@@ -515,7 +515,7 @@ for (cond in conditions){
             facet_grid(condition ~ cluster)+
             scale_color_distiller(palette = "YlOrRd", direction = 1, na.value = "grey80") +
             theme_cowplot()+
-            labs (title = "Fuzzy c-means clustering", subtitle = "\"DHX9\" mean expression (colored) compared to \"Neg\" mean expression (grey), facet_grid") +
+            labs (title = "Fuzzy c-means clustering", subtitle = "\"group4\" mean expression (colored) compared to \"Neg\" mean expression (grey), facet_grid") +
             theme(legend.position = "bottom"))
     
     dev.off()
