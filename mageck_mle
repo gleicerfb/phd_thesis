@@ -1,6 +1,6 @@
 #mageck_mle for calculation of beta-scores and statistics#
 
-cd /misc/enton/data/gborges/mageck/  #set directory to the ones with library files and NGS fastq files
+cd /data/  #set directory to the ones with library files and NGS fastq files
 
 mageck mle --count-table PoolA_PoolB_run3.count.txt --design-matrix matrix_PD0vsPD5_run4.txt --norm-method total --output-prefix mle_PD5vsPD0_total_normalization #run mageck mle using the count table (--count-table), the design matrix(--design-matrix), define the normalization method (--norm-method), and the output file name (--output-prefix)
 #OR
