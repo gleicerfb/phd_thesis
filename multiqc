@@ -1,3 +1,3 @@
 #multiqc for quality control of NGS fastq files#
-cd /misc/enton/data/gborges/mageck/  #set directory to the ones with library files and NGS fastq files
+cd /datapath/  #set directory to the ones with library files and NGS fastq files
 multiqc . #run multiqc within the directory, with creation of folder with output files and report
