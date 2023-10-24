@@ -23,7 +23,7 @@ output:
   pdf_document: default
 params:
     projectid: "CFBI_20210127_156_GB"
-    wkdir: "/misc/sandan/cfbi/CFBI_20210127_156_GB/fuzzy_clustering/"
+    wkdir: "/datapath/CFBI_20210127_156_GB/fuzzy_clustering/"
 editor_options: 
   chunk_output_type: console
 ---
@@ -42,7 +42,7 @@ working directory: `r params$wkdir`
 # This chunk is never executed while knitting the complete Rmd.
 params = list()
 params$projectid <- "CFBI_20210127_156_GB"
-params$wkdir <- "/misc/sandan/cfbi/CFBI_20210127_156_GB/fuzzy_clustering/"
+params$wkdir <- "/datapath/CFBI_20210127_156_GB/fuzzy_clustering/"
 ```
 
 ```{r init, cache=FALSE, include=FALSE}
